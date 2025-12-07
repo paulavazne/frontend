@@ -1,0 +1,70 @@
+<div
+  class="container-fluid bg-body-tertiary min-vh-100 d-flex justify-content-center align-items-center"
+>
+  <div class="col-md-6 col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="text-center mb-4">Pieslēgties</h2>
+
+        <!-- liettoajvarads -->
+        <div class="mb-3">
+          <input
+            class="form-control"
+            type="text"
+            placeholder="Lietotājvārds"
+            [field]="loginForm.username"
+          />
+
+          @if (loginForm.username().touched() && loginForm.username().invalid()) { @for (err of
+          loginForm.username().errors(); track $index) {
+          <small class="text-danger d-block">
+            {{ err.message }}
+          </small>
+          } }
+        </div>
+
+        <!-- parole -->
+        <div class="mb-3">
+          <input
+            class="form-control"
+            type="password"
+            placeholder="Parole"
+            [field]="loginForm.password"
+          />
+
+          @if (loginForm.password().touched() && loginForm.password().invalid()) { @for (err of
+          loginForm.password().errors(); track $index) {
+          <small class="text-danger d-block">
+            {{ err.message }}
+          </small>
+          } }
+        </div>
+
+        <!-- poga pieslegties-->
+        <button
+          class="btn btn-primary w-100 mb-3"
+          type="button"
+          (click)="logInUser(loginForm().value())"
+          [disabled]="!loginForm().valid()"
+        >
+          Pieslēgties
+        </button>
+
+        <!-- poga registreties -->
+        <div class="text-center">
+          <button class="btn btn-outline-primary w-100" type="button" (click)="goToRegister()">
+            Reģistrēties
+          </button>
+        </div>
+
+        <!-- ja forma invalid, prasu lai sataisa-->
+        @if (!loginForm().valid() && loginForm.username().touched() &&
+        loginForm.password().touched()) {
+        <small class="text-danger d-block mt-2 text-center">
+          Lūdzu, salabo kļūdas laukos pirms pieslēgšanās.
+        </small>
+        }
+      </div>
+    </div>
+  </div>
+</div>
