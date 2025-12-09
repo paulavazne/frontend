@@ -4,6 +4,7 @@ import { EventsService } from '../services/events-service';
 import { EventModel } from '../models/event-model';
 import { UserGlobalSignal } from '../globalSignals/user-global-signal';
 import { CommonModule, DatePipe } from '@angular/common';
+
 // attelos visus pasakumus, izveidoshu validato formu, jauns,piesledzos,atsakos. te vajag field un form
 @Component({
   selector: 'app-events',
@@ -12,15 +13,19 @@ import { CommonModule, DatePipe } from '@angular/common';
   templateUrl: './events.html',
 })
 export class Events implements OnInit {
+
   // injeceju, lai eventservice un userglobal pieejami komponentee. 
-  // eventservice ar backendapi get,create,registercancel. useglobal satur pieteikushos global lietotaju
-  private eventsService = inject(EventsService); 
-  private userGlobal = inject(UserGlobalSignal);
-// fomrats un lai nevar sodienu izveleities
+  // eventservice ar backendapi get,create,registercancel. userglobal satur pieteikušos globālo lietotāju
+  private eventsService = inject(EventsService);
+  readonly userGlobal = inject(UserGlobalSignal);
+
+  // uzstadu formatu un to lai nevar izveleties shodienu
   today = new Date().toISOString().split('T')[0];
-// shis bus reaktivais signals, kura glabasies visi pasakumi no servera, mainisies, kad bus update vai set
+
+  // sis bus reaktivais signals, kura glabasies visi pasakumi no servera
   eventsSignal = signal<EventModel[]>([]);
-  // tikai vertibas
+
+  // vnk vertibas ko fomra ievadits
   eventSignal = signal({
     title: '',
     description: '',
@@ -30,7 +35,7 @@ export class Events implements OnInit {
     maxParticipants: 1,
   });
 
-  // field forma validacija
+  // field formas validacijas
   eventForm = form(this.eventSignal, (f) => {
     required(f.title, { message: 'Nosaukums ir obligāts' });
     minLength(f.title, 3, { message: 'Vismaz 3 simboli' });
@@ -46,12 +51,12 @@ export class Events implements OnInit {
     required(f.maxParticipants, { message: 'Max cilvēku skaits ir obligāts' });
   });
 
-  //inicializeju
+  // inicializacjija
   ngOnInit(): void {
     this.loadEvents();
   }
 
-  // ieladeju visus eventus
+  // ieladesu visus eventus
   loadEvents(): void {
     this.eventsService.getAllEvents().subscribe({
       next: (events) => this.eventsSignal.set(events),
@@ -64,19 +69,39 @@ export class Events implements OnInit {
     if (!this.eventForm().valid()) return;
 
     const formValue = this.eventForm().value();
-    const body = {
+
+    // parbaudu vai lietotajs piesledzies
+    const user = this.userGlobal.userGlobalSignal();
+    if (!user.id) {
+      alert('Lūdzu, pieslēdzies sistēmai, lai varētu izveidot pasākumu vai pieslēgties tam');
+      return;
+    }
+
+    // izveidoju datuma un laika objektu un parbaudu vai nav pagatne
+    const fullDateTime = new Date(`${formValue.date}T${formValue.time}`);
+    const now = new Date();
+
+    if (fullDateTime < now) {
+      alert('Pasākumu nevar izveidot pagātnē!');
+      return;
+    }
+
+    // sagatavoju objektu, ko sutit uz backend
+    const body: Partial<EventModel> = {
       title: formValue.title,
       description: formValue.description,
-      dateTime: `${formValue.date}T${formValue.time}`,
+      dateTime: fullDateTime.toISOString(),
       location: formValue.location,
       maxParticipants: formValue.maxParticipants,
+      createdBy: user.id, // pielieku sho, lai nosutitu ari autora id - palidzes nodrosinat, ka izdzest var tikai atuors
     };
 
-    this.eventsService.createEvent(body).subscribe({
+// servisa uztaisiju ka userid sanem atseviski
+    this.eventsService.createEvent(body, user.id).subscribe({
       next: (created) => {
         this.eventsSignal.update((list) => [...list, created]);
 
-        // notiiru formu
+        // attiru formu
         this.eventSignal.set({
           title: '',
           description: '',
@@ -85,42 +110,80 @@ export class Events implements OnInit {
           location: '',
           maxParticipants: 1,
         });
+
+        alert('Apsveicu, tavs pasākums ir veiksmīgi izveidots');
       },
-      error: (err) => console.error('Error creating event', err),
+      error: (err) => {
+        console.error('Kļūda', err);
+        alert('Pasākumu izveidot neizdevās. Mēģini vēlreiz.');
+      },
     });
   }
 
-  //piesakos
+  // piesakos
   registerForEvent(event: EventModel): void {
     const user = this.userGlobal.userGlobalSignal();
     const userId = user.id ?? null;
     if (!event.id || !userId) return;
-
-    // parbaudu vai nav jau pieregistrejies - parbauda vai eventparticipantid jau nav sads userid
+// no globala signala ieguvu pasreizejo lietotaju. 
     const alreadyRegistered = event.participantIds?.includes(userId);
-    // parbaudu, vai nav pilns, ja ir tad return no jauna???
     const isFull = event.currentParticipants >= event.maxParticipants;
     if (alreadyRegistered || isFull) return;
-
+// parbauda vai userid ir jau registrejies jeb datubaze zem participantids
+// is full parbauda vai dalibnieku skaits ir sasniedzis maxparticipants
+// ja kads no siem check, tad funkcija beidzas bez darbibas. 
     this.eventsService.registerForEvent(event.id, userId).subscribe({
+    //  izsaucu registerforevent metodi eventsservice klase, kas sutis pieprasijumu uz bakendu - put uz events/event id.register/userid
       next: (updated) => {
         this.eventsSignal.update((list) =>
           list.map((e) => (e.id === updated.id ? updated : e))
         );
       },
+  // kad ieregistrejos tad next frontend saraksts eventssignal atjaunojas un nomaina veco uz updated
+  // ar .map atrodu isto event.id un aizvietoju ari ar jauno. 
       error: (err) => console.error('Error registering', err),
     });
   }
 
-  // atsakos no pasakuma - tas nozime ka, kanceloju registraciju un tieku iznemta ari no eventparticipantid
+  // autors var izdzēst savu pasākumu
+ deleteEvent(eventId: number): void {
+  const user = this.userGlobal.userGlobalSignal();
+  if (!user.id) return;
+// panemu globalo lietotaju no userglobalsignal. ja lietotajs nav piesledzies (nav userid), funkciju partraucam
+  const event = this.eventsSignal().find(e => e.id === eventId);
+  if (!event) return;
+// atrodu pasakumu pec eventid no lokala eventssignal saraksa. ja pasakumu neatrodu - funkcija atkal apstaies
+  if (event.createdBy !== user.id) {
+    alert('Atvaino, bet pasākumu var rediģēt un dzēst tikai tā autors');
+    return;
+  }
+// parbaudu autorizaciju. lietotajs vares izdzest pasakumu tad, ja bus autors - jeb createdby == userid
+  if (!confirm('Vai esi drošs, ka pasākumu vēlies dzēst?')) return;
+// ja neapstiprinas nedzesis un bus retunr
+  // TE IR PĀRSŪTĪTS ARĪ user.id
+  this.eventsService.deleteEvent(eventId, user.id).subscribe({
+  // uz bakendu sutu dzesanas prasijumu kopa ar eventid- kurs pasakums, userid - kurs megina. bakend pec siem parametriem valdies vai sis lietotajs driskt dzest pasakumu
+    next: () => {
+      this.eventsSignal.update(events => events.filter(e => e.id !== eventId));
+      alert('Pasākums izdzēsts neatgriezenisi');
+    },
+    // ja bakend apstiprina, tad pasakumu no frontend iznemu ar filter un lietotajs sanem pazinojumu
+    error: (err) => {
+      console.error('Kļūda', err);
+      alert('Pasākumu neizdevās dzēst :(');
+    }
+  });
+}
+
+  // atsakos no pasākuma
   cancelRegistration(event: EventModel): void {
     const user = this.userGlobal.userGlobalSignal();
     const userId = user.id ?? null;
     if (!event.id || !userId) return;
-// atkal parbaudu vai ir registerejies
+// parbaudu vai lietotajs piesledzies un pasakumam ir id. 
     const alreadyRegistered = event.participantIds?.includes(userId);
     if (!alreadyRegistered) return;
-// sutu uz bakendu atteikshanas pieprasijumu
+// parbaudu vai userid ir pararticipantid saraksta
     this.eventsService.cancelRegistration(event.id, userId).subscribe({
       next: (updated) => {
         this.eventsSignal.update((list) =>
@@ -129,18 +192,24 @@ export class Events implements OnInit {
       },
       error: (err) => console.error('Error cancelling', err),
     });
+// sutu put pieprasijumu uz /events/id/cancel/userid. ja viss ok tad samazinasies ciparins, ja bus problema, paradisies logs
   }
 
-  //shis parbaudis vai event ir full
+  // pārbauda vai event ir pilns
   isEventFull(event: EventModel): boolean {
     return event.currentParticipants >= event.maxParticipants;
   }
 
-  //par jau pieteikushos
+  // parbaudu vai ir pieregistrejies?
   isUserRegistered(event: EventModel): boolean {
     const userId = this.userGlobal.userGlobalSignal().id ?? null;
-// sanak parbauda gan null, gan undefined, kas ir globalajaa. ja userid nav, atgriezh false, vai ja participantids nav definets ari ir dalse
-    if (userId ==null) return false;
+    if (userId == null) return false;
     return !!event.participantIds?.includes(userId);
+  }
+
+  // parbauda vai nav pagatne 
+  isEventInPast(event: EventModel): boolean {
+    if (!event.dateTime) return false;
+    return new Date(event.dateTime) < new Date();
   }
 }

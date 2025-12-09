@@ -7,6 +7,7 @@ export interface EventModel {
   maxParticipants: number;
   currentParticipants: number;
   participantIds: number[];
+  createdBy?: number;
 }
 
 // interfeiss, stuktura pasakuma objektiem. izmantoju visur kur kko darishu ar pasakuma datiem'

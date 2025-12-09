@@ -1,12 +1,21 @@
 <div
-  class="container-fluid bg-body-tertiary min-vh-100 d-flex justify-content-center align-items-center"
+  class="container-fluid bg-dark-subtle min-vh-100 d-flex flex-column justify-content-center align-items-center"
 >
-  <div class="col-md-6 col-lg-4">
-    <div class="card shadow-sm">
-      <div class="card-body p-4">
-        <h2 class="text-center mb-4">Pieslēgties</h2>
+  <!-- virsraksts un ikonina no bootstrap -->
+  <div class="text-center mb-4">
+    <h1 class="display-5 fw-semibold text-success">
+      <i class="bi bi-calendar-check me-2"></i>
+      Esi sveicināts pasākumu organizatorā!
+    </h1>
+  </div>
 
-        <!-- liettoajvarads -->
+  <!-- login forma -->
+  <div class="col-12 col-sm-8 col-md-6 col-lg-4">
+    <div class="card shadow border-0 rounded-4 bg-white">
+      <div class="card-body p-4">
+        <h2 class="text-center mb-4 text-success">Pieslēgties</h2>
+
+        <!-- username -->
         <div class="mb-3">
           <input
             class="form-control"
@@ -14,16 +23,13 @@
             placeholder="Lietotājvārds"
             [field]="loginForm.username"
           />
-
           @if (loginForm.username().touched() && loginForm.username().invalid()) { @for (err of
           loginForm.username().errors(); track $index) {
-          <small class="text-danger d-block">
-            {{ err.message }}
-          </small>
+          <small class="text-danger d-block">{{ err.message }}</small>
           } }
         </div>
 
-        <!-- parole -->
+        <!-- passww -->
         <div class="mb-3">
           <input
             class="form-control"
@@ -31,18 +37,15 @@
             placeholder="Parole"
             [field]="loginForm.password"
           />
-
           @if (loginForm.password().touched() && loginForm.password().invalid()) { @for (err of
           loginForm.password().errors(); track $index) {
-          <small class="text-danger d-block">
-            {{ err.message }}
-          </small>
+          <small class="text-danger d-block">{{ err.message }}</small>
           } }
         </div>
 
-        <!-- poga pieslegties-->
+        <!-- button pieslegties-->
         <button
-          class="btn btn-primary w-100 mb-3"
+          class="btn btn-success w-100 mb-3"
           type="button"
           (click)="logInUser(loginForm().value())"
           [disabled]="!loginForm().valid()"
@@ -50,14 +53,14 @@
           Pieslēgties
         </button>
 
-        <!-- poga registreties -->
+        <!-- poga registere -->
         <div class="text-center">
-          <button class="btn btn-outline-primary w-100" type="button" (click)="goToRegister()">
+          <button class="btn btn-outline-success w-100" type="button" (click)="goToRegister()">
             Reģistrēties
           </button>
         </div>
 
-        <!-- ja forma invalid, prasu lai sataisa-->
+        <!-- validacijas kludas pazinoja -->
         @if (!loginForm().valid() && loginForm.username().touched() &&
         loginForm.password().touched()) {
         <small class="text-danger d-block mt-2 text-center">

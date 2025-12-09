@@ -7,33 +7,47 @@ import { EventModel } from '../models/event-model';
   providedIn: 'root'
 })
 export class EventsService {
- http = inject(HttpClient);
- private readonly URL: string = "http://localhost:8080/events"
-// saknojas htmla
-  //visi eventi
-  // suta get pieprasijumu uz 8080/events, sagaida atbildi no servera ar visiem pasakumiem. (java tas nonaks uz getmapping getallevents)
+  http = inject(HttpClient);
+  private readonly URL: string = "http://localhost:8080/events";
+
+  // saknojas htmla
+
+  // visi eventi
+  // suta get pieprasijumu uz 8080/events, sagaida atbildi no servera ar visiem pasakumiem. 
+  // (java tas nonaks uz getmapping getallevents)
   getAllEvents(): Observable<EventModel[]> {
     return this.http.get<EventModel[]>(this.URL);
   }
 
   // izveidoju
-  // suta post uz 8080/events, pieprasijuma body bus pasakuma dati, title, datetime, location utt. (java tas nonaks uz postmaping createevent)
-  createEvent(event: Partial<EventModel>): Observable<EventModel> {
-    return this.http.post<EventModel>(this.URL, event);
+  // lai varetu ari izdzest byuser
+  // suta post uz 8080/events/user/{userId}, pieprasijuma body bus pasakuma dati: title, datetime, location utt. 
+  // (java tas nonaks uz postmapping createevent)
+  createEvent(event: Partial<EventModel>, userId: number): Observable<EventModel> {
+    return this.http.post<EventModel>(`${this.URL}/user/${userId}`, event);
   }
 
   // piesakos
-  // suta put pieprasijumu uz 8080/events, pieprasijuma nebus body bet tikai url (java tas nonaks pie putmapping register. un man atgriezis atjaunotu pasakumu, kur currentparticipants un participantids bus atjaunots)
- registerForEvent(eventId: number, userId: number) {
-  return this.http.put<EventModel>(
-    `${this.URL}/${eventId}/register/${userId}`,
-    {}
-  );
+  // suta PUT pieprasijumu uz 8080/events/{eventId}/register/{userId}, pieprasijuma nebus body, tikai URL.
+  // (java tas nonaks uz PUT mapping registerForEvent un atgriez atjaunotu pasakumu)
+  registerForEvent(eventId: number, userId: number): Observable<EventModel> {
+    return this.http.put<EventModel>(
+      `${this.URL}/${eventId}/register/${userId}`,
+      {}
+    );
   }
 
-  // atcelu
-  // suta put pieprasijumu uz 8080/events, cancel. serveris samazinas dalibnieku skaitu(pamainis ciparus) un ari nonems userid no participantids
-  cancelRegistration(eventId: number, userId: number) {
-  return this.http.put<EventModel>(`${this.URL}/${eventId}/cancel/${userId}`, {});
+  // lai varu izdzēst pasākumu - definēju metodi šeit, lai events.ts to atpazīst
+  // nosūta DELETE pieprasījumu uz backendu. Pieņem parametru eventId (skaitlis)
+  // un atgriež Observable<void> – asinhronu, kas paziņo, ka dzēšana notika veiksmīgi vai nē.
+ deleteEvent(eventId: number, userId: number): Observable<void> {
+  return this.http.delete<void>(`${this.URL}/${eventId}/user/${userId}`);
+}
+
+  // atceļu reģistrāciju
+  // sūta PUT pieprasījumu uz 8080/events/{eventId}/cancel/{userId}. 
+  // Serveris samazinās dalībnieku skaitu un noņems userId no participantIds
+  cancelRegistration(eventId: number, userId: number): Observable<EventModel> {
+    return this.http.put<EventModel>(`${this.URL}/${eventId}/cancel/${userId}`, {});
   }
 }
